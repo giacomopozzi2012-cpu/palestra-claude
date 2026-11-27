@@ -91,6 +91,28 @@
       color: var(--muted);
     }
     button.tema:hover:not(:disabled) { background: transparent; color: var(--text); border-color: var(--text); }
+
+    /* Modalità pausa: colore verde invece del rosso */
+    body[data-modo="pausa"] { --accent: #2f9e6e; --accent-dark: #237a55; }
+
+    /* Linguette per scegliere la modalità */
+    .modi {
+      display: inline-flex;
+      gap: 4px;
+      padding: 4px;
+      margin-bottom: 16px;
+      border-radius: 999px;
+      background: var(--ring-bg);
+    }
+    button.modo {
+      min-width: 0;
+      padding: 6px 14px;
+      font-size: 0.85rem;
+      border: none;
+      color: var(--muted);
+    }
+    button.modo:not(.primario):hover:not(:disabled) { background: transparent; color: var(--text); }
+    button.modo[aria-pressed="true"] { background: var(--accent); color: #fff; }
   </style>
   <script>
     // Applica il tema salvato prima del render, per evitare il lampo di colore sbagliato
@@ -102,7 +124,11 @@
 </head>
 <body>
   <main class="card">
-    <h1>🍅 Pomodoro</h1>
+    <div class="modi" role="group" aria-label="Modalità">
+      <button class="modo" id="modo-lavoro" aria-pressed="true">🍅 Concentrazione</button>
+      <button class="modo" id="modo-pausa" aria-pressed="false">☕ Pausa</button>
+    </div>
+    <h1 id="titolo">🍅 Pomodoro</h1>
     <p class="stato" id="stato">Pronto per 25 minuti di concentrazione</p>
 
     <div class="anello">
@@ -115,7 +141,7 @@
 
     <div class="pulsanti">
       <button class="primario" id="avvia">Avvia</button>
-      <button id="pausa" disabled>Pausa</button>
+      <button id="pausa" disabled>Ferma</button>
       <button id="reset">Reset</button>
     </div>
 
@@ -123,20 +149,40 @@
   </main>
 
   <script>
-    const DURATA = 25 * 60 * 1000; // 25 minuti in millisecondi
+    // Le due modalità: durata (in millisecondi) e testi da mostrare
+    const MODI = {
+      lavoro: {
+        durata: 25 * 60 * 1000,
+        titolo: '🍅 Pomodoro',
+        pronto: 'Pronto per 25 minuti di concentrazione',
+        inCorso: 'Concentrati!',
+        nomeTab: 'Pomodoro'
+      },
+      pausa: {
+        durata: 5 * 60 * 1000,
+        titolo: '☕ Pausa',
+        pronto: 'Pronto per 5 minuti di pausa',
+        inCorso: 'Rilassati, alzati, bevi un po\' d\'acqua',
+        nomeTab: 'Pausa'
+      }
+    };
 
     const elTempo = document.getElementById('tempo');
     const elStato = document.getElementById('stato');
+    const elTitolo = document.getElementById('titolo');
     const elProgresso = document.getElementById('progresso');
     const btnAvvia = document.getElementById('avvia');
     const btnPausa = document.getElementById('pausa');
     const btnReset = document.getElementById('reset');
+    const btnModoLavoro = document.getElementById('modo-lavoro');
+    const btnModoPausa = document.getElementById('modo-pausa');
 
     const CIRC = 2 * Math.PI * 54;
     elProgresso.style.strokeDasharray = CIRC;
 
-    let rimanente = DURATA;   // ms rimanenti
-    let fine = null;          // timestamp di fine quando in esecuzione
+    let modo = 'lavoro';                // modalità attuale: 'lavoro' o 'pausa'
+    let rimanente = MODI[modo].durata;  // ms rimanenti
+    let fine = null;                    // timestamp di fine quando in esecuzione
     let intervallo = null;
 
     function formatta(ms) {
@@ -149,8 +195,8 @@
     function aggiorna() {
       const testo = formatta(rimanente);
       elTempo.textContent = testo;
-      document.title = (fine ? '▶ ' : '') + testo + ' – Pomodoro';
-      elProgresso.style.strokeDashoffset = CIRC * (1 - rimanente / DURATA);
+      document.title = (fine ? '▶ ' : '') + testo + ' – ' + MODI[modo].nomeTab;
+      elProgresso.style.strokeDashoffset = CIRC * (1 - rimanente / MODI[modo].durata);
     }
 
     function tick() {
@@ -166,7 +212,7 @@
       intervallo = setInterval(tick, 250);
       btnAvvia.disabled = true;
       btnPausa.disabled = false;
-      elStato.textContent = 'Concentrati!';
+      elStato.textContent = MODI[modo].inCorso;
       aggiorna();
     }
 
@@ -179,32 +225,43 @@
       btnAvvia.disabled = false;
       btnAvvia.textContent = 'Riprendi';
       btnPausa.disabled = true;
-      elStato.textContent = 'In pausa';
+      elStato.textContent = 'Fermato';
       aggiorna();
     }
 
+    // Ferma il timer e lo riporta all'inizio della modalità attuale
     function reset() {
       clearInterval(intervallo);
       intervallo = null;
       fine = null;
-      rimanente = DURATA;
+      rimanente = MODI[modo].durata;
       btnAvvia.disabled = false;
       btnAvvia.textContent = 'Avvia';
       btnPausa.disabled = true;
-      elStato.textContent = 'Pronto per 25 minuti di concentrazione';
+      elStato.textContent = MODI[modo].pronto;
       aggiorna();
     }
 
+    // Cambia modalità (lavoro <-> pausa) e azzera il timer
+    function impostaModo(nuovo) {
+      modo = nuovo;
+      document.body.dataset.modo = nuovo;
+      elTitolo.textContent = MODI[nuovo].titolo;
+      btnModoLavoro.setAttribute('aria-pressed', nuovo === 'lavoro');
+      btnModoPausa.setAttribute('aria-pressed', nuovo === 'pausa');
+      reset();
+    }
+
     function completato() {
-      clearInterval(intervallo);
-      intervallo = null;
-      fine = null;
-      btnAvvia.disabled = true;
-      btnPausa.disabled = true;
-      elStato.textContent = 'Tempo scaduto! Fai una pausa 🎉';
-      document.title = '✅ Fatto! – Pomodoro';
+      const eraLavoro = modo === 'lavoro';
       suona();
-      notifica();
+      notifica(eraLavoro);
+      // Prepara subito la fase successiva: dopo il lavoro la pausa, dopo la pausa il lavoro
+      impostaModo(eraLavoro ? 'pausa' : 'lavoro');
+      elStato.textContent = eraLavoro
+        ? 'Tempo scaduto! Avvia la pausa da 5 minuti 🎉'
+        : 'Pausa finita! Pronto a ripartire?';
+      document.title = (eraLavoro ? '✅ Fatto!' : '⏰ Pausa finita') + ' – Pomodoro';
     }
 
     // --- Notifiche del browser ---
@@ -216,11 +273,11 @@
       } catch (e) { /* API non disponibile */ }
     }
 
-    function notifica() {
+    function notifica(eraLavoro) {
       try {
         if (!('Notification' in window) || Notification.permission !== 'granted') return;
-        const n = new Notification('Pomodoro completato 🍅', {
-          body: 'Tempo scaduto! Fai una pausa.',
+        const n = new Notification(eraLavoro ? 'Pomodoro completato 🍅' : 'Pausa finita ☕', {
+          body: eraLavoro ? 'Tempo scaduto! Fai una pausa di 5 minuti.' : 'Si torna a concentrarsi!',
           tag: 'pomodoro'
         });
         n.onclick = () => { window.focus(); n.close(); };
@@ -271,6 +328,8 @@
     btnAvvia.addEventListener('click', avvia);
     btnPausa.addEventListener('click', pausa);
     btnReset.addEventListener('click', reset);
+    btnModoLavoro.addEventListener('click', () => impostaModo('lavoro'));
+    btnModoPausa.addEventListener('click', () => impostaModo('pausa'));
 
     aggiorna();
   </script>
