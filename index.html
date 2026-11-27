@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Timer Pomodoro</title>
+  <style>
+    :root {
+      --bg: #fdf6f0;
+      --card: #ffffff;
+      --text: #2b2b2b;
+      --muted: #777;
+      --accent: #e5533d;
+      --accent-dark: #c43f2b;
+      --ring-bg: #f1e4dc;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1c1a19;
+        --card: #272423;
+        --text: #f2ece8;
+        --muted: #a59d98;
+        --ring-bg: #3a3431;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      padding: 16px;
+    }
+    .card {
+      background: var(--card);
+      border-radius: 20px;
+      padding: 32px 24px;
+      width: 100%;
+      max-width: 380px;
+      text-align: center;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+    }
+    h1 { margin: 0 0 4px; font-size: 1.5rem; }
+    .stato { margin: 0 0 24px; color: var(--muted); font-size: 0.95rem; }
+    .anello { position: relative; width: 240px; height: 240px; margin: 0 auto 28px; max-width: 100%; }
+    .anello svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+    .anello circle { fill: none; stroke-width: 10; }
+    .sfondo { stroke: var(--ring-bg); }
+    .progresso { stroke: var(--accent); stroke-linecap: round; transition: stroke-dashoffset 0.3s linear; }
+    .tempo {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 3.4rem; font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+    .pulsanti { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+    button {
+      font: inherit; font-weight: 600;
+      padding: 12px 22px;
+      border-radius: 999px;
+      border: 2px solid var(--accent);
+      background: transparent;
+      color: var(--accent);
+      cursor: pointer;
+      min-width: 96px;
+      transition: background 0.15s, color 0.15s, opacity 0.15s;
+    }
+    button.primario { background: var(--accent); color: #fff; }
+    button.primario:hover:not(:disabled) { background: var(--accent-dark); border-color: var(--accent-dark); }
+    button:not(.primario):hover:not(:disabled) { background: var(--accent); color: #fff; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    button:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>🍅 Pomodoro</h1>
+    <p class="stato" id="stato">Pronto per 25 minuti di concentrazione</p>
+
+    <div class="anello">
+      <svg viewBox="0 0 120 120" aria-hidden="true">
+        <circle class="sfondo" cx="60" cy="60" r="54"></circle>
+        <circle class="progresso" id="progresso" cx="60" cy="60" r="54"></circle>
+      </svg>
+      <div class="tempo" id="tempo" role="timer" aria-live="off">25:00</div>
+    </div>
+
+    <div class="pulsanti">
+      <button class="primario" id="avvia">Avvia</button>
+      <button id="pausa" disabled>Pausa</button>
+      <button id="reset">Reset</button>
+    </div>
+  </main>
+
+  <script>
+    const DURATA = 25 * 60 * 1000; // 25 minuti in millisecondi
+
+    const elTempo = document.getElementById('tempo');
+    const elStato = document.getElementById('stato');
+    const elProgresso = document.getElementById('progresso');
+    const btnAvvia = document.getElementById('avvia');
+    const btnPausa = document.getElementById('pausa');
+    const btnReset = document.getElementById('reset');
+
+    const CIRC = 2 * Math.PI * 54;
+    elProgresso.style.strokeDasharray = CIRC;
+
+    let rimanente = DURATA;   // ms rimanenti
+    let fine = null;          // timestamp di fine quando in esecuzione
+    let intervallo = null;
+
+    function formatta(ms) {
+      const sec = Math.ceil(ms / 1000);
+      const m = String(Math.floor(sec / 60)).padStart(2, '0');
+      const s = String(sec % 60).padStart(2, '0');
+      return `${m}:${s}`;
+    }
+
+    function aggiorna() {
+      const testo = formatta(rimanente);
+      elTempo.textContent = testo;
+      document.title = (fine ? '▶ ' : '') + testo + ' – Pomodoro';
+      elProgresso.style.strokeDashoffset = CIRC * (1 - rimanente / DURATA);
+    }
+
+    function tick() {
+      rimanente = Math.max(0, fine - Date.now());
+      aggiorna();
+      if (rimanente === 0) completato();
+    }
+
+    function avvia() {
+      if (intervallo || rimanente === 0) return;
+      fine = Date.now() + rimanente;
+      intervallo = setInterval(tick, 250);
+      btnAvvia.disabled = true;
+      btnPausa.disabled = false;
+      elStato.textContent = 'Concentrati!';
+      aggiorna();
+    }
+
+    function pausa() {
+      if (!intervallo) return;
+      clearInterval(intervallo);
+      intervallo = null;
+      rimanente = Math.max(0, fine - Date.now());
+      fine = null;
+      btnAvvia.disabled = false;
+      btnAvvia.textContent = 'Riprendi';
+      btnPausa.disabled = true;
+      elStato.textContent = 'In pausa';
+      aggiorna();
+    }
+
+    function reset() {
+      clearInterval(intervallo);
+      intervallo = null;
+      fine = null;
+      rimanente = DURATA;
+      btnAvvia.disabled = false;
+      btnAvvia.textContent = 'Avvia';
+      btnPausa.disabled = true;
+      elStato.textContent = 'Pronto per 25 minuti di concentrazione';
+      aggiorna();
+    }
+
+    function completato() {
+      clearInterval(intervallo);
+      intervallo = null;
+      fine = null;
+      btnAvvia.disabled = true;
+      btnPausa.disabled = true;
+      elStato.textContent = 'Tempo scaduto! Fai una pausa 🎉';
+      document.title = '✅ Fatto! – Pomodoro';
+      suona();
+    }
+
+    function suona() {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        [0, 0.4, 0.8].forEach((t) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.frequency.value = 880;
+          gain.gain.setValueAtTime(0.25, ctx.currentTime + t);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 0.3);
+          osc.connect(gain).connect(ctx.destination);
+          osc.start(ctx.currentTime + t);
+          osc.stop(ctx.currentTime + t + 0.3);
+        });
+      } catch (e) { /* audio non disponibile */ }
+    }
+
+    btnAvvia.addEventListener('click', avvia);
+    btnPausa.addEventListener('click', pausa);
+    btnReset.addEventListener('click', reset);
+
+    aggiorna();
+  </script>
+</body>
+</html>
