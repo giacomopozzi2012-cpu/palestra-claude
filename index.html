@@ -15,13 +15,20 @@
       --ring-bg: #f1e4dc;
     }
     @media (prefers-color-scheme: dark) {
-      :root {
+      :root:not([data-theme="light"]) {
         --bg: #1c1a19;
         --card: #272423;
         --text: #f2ece8;
         --muted: #a59d98;
         --ring-bg: #3a3431;
       }
+    }
+    :root[data-theme="dark"] {
+      --bg: #1c1a19;
+      --card: #272423;
+      --text: #f2ece8;
+      --muted: #a59d98;
+      --ring-bg: #3a3431;
     }
     * { box-sizing: border-box; }
     body {
@@ -74,7 +81,24 @@
     button:not(.primario):hover:not(:disabled) { background: var(--accent); color: #fff; }
     button:disabled { opacity: 0.4; cursor: not-allowed; }
     button:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+    button.tema {
+      margin-top: 20px;
+      padding: 8px 16px;
+      min-width: 0;
+      font-size: 0.85rem;
+      font-weight: 500;
+      border: 1px solid var(--muted);
+      color: var(--muted);
+    }
+    button.tema:hover:not(:disabled) { background: transparent; color: var(--text); border-color: var(--text); }
   </style>
+  <script>
+    // Applica il tema salvato prima del render, per evitare il lampo di colore sbagliato
+    try {
+      const t = localStorage.getItem('pomodoro-tema');
+      if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+    } catch (e) { /* storage non disponibile */ }
+  </script>
 </head>
 <body>
   <main class="card">
@@ -94,6 +118,8 @@
       <button id="pausa" disabled>Pausa</button>
       <button id="reset">Reset</button>
     </div>
+
+    <button class="tema" id="tema" aria-label="Cambia tema"></button>
   </main>
 
   <script>
@@ -135,6 +161,7 @@
 
     function avvia() {
       if (intervallo || rimanente === 0) return;
+      chiediPermessoNotifiche();
       fine = Date.now() + rimanente;
       intervallo = setInterval(tick, 250);
       btnAvvia.disabled = true;
@@ -177,7 +204,53 @@
       elStato.textContent = 'Tempo scaduto! Fai una pausa 🎉';
       document.title = '✅ Fatto! – Pomodoro';
       suona();
+      notifica();
     }
+
+    // --- Notifiche del browser ---
+    function chiediPermessoNotifiche() {
+      try {
+        if ('Notification' in window && Notification.permission === 'default') {
+          Notification.requestPermission();
+        }
+      } catch (e) { /* API non disponibile */ }
+    }
+
+    function notifica() {
+      try {
+        if (!('Notification' in window) || Notification.permission !== 'granted') return;
+        const n = new Notification('Pomodoro completato 🍅', {
+          body: 'Tempo scaduto! Fai una pausa.',
+          tag: 'pomodoro'
+        });
+        n.onclick = () => { window.focus(); n.close(); };
+      } catch (e) { /* alcuni browser mobile non supportano il costruttore */ }
+    }
+
+    // --- Tema chiaro/scuro ---
+    const btnTema = document.getElementById('tema');
+    const mqScuro = window.matchMedia('(prefers-color-scheme: dark)');
+
+    function temaAttivo() {
+      const t = document.documentElement.dataset.theme;
+      if (t === 'light' || t === 'dark') return t;
+      return mqScuro.matches ? 'dark' : 'light';
+    }
+
+    function aggiornaPulsanteTema() {
+      const scuro = temaAttivo() === 'dark';
+      btnTema.textContent = scuro ? '☀️ Tema chiaro' : '🌙 Tema scuro';
+      btnTema.setAttribute('aria-label', scuro ? 'Passa al tema chiaro' : 'Passa al tema scuro');
+    }
+
+    btnTema.addEventListener('click', () => {
+      const nuovo = temaAttivo() === 'dark' ? 'light' : 'dark';
+      document.documentElement.dataset.theme = nuovo;
+      try { localStorage.setItem('pomodoro-tema', nuovo); } catch (e) { /* storage non disponibile */ }
+      aggiornaPulsanteTema();
+    });
+    mqScuro.addEventListener('change', aggiornaPulsanteTema);
+    aggiornaPulsanteTema();
 
     function suona() {
       try {
