@@ -141,7 +141,7 @@
 
     <div class="pulsanti">
       <button class="primario" id="avvia">Avvia</button>
-      <button id="pausa" disabled>Pausa</button>
+      <button id="pausa" disabled>Ferma</button>
       <button id="reset">Reset</button>
     </div>
 
@@ -225,7 +225,7 @@
       btnAvvia.disabled = false;
       btnAvvia.textContent = 'Riprendi';
       btnPausa.disabled = true;
-      elStato.textContent = 'In pausa';
+      elStato.textContent = 'Fermato';
       aggiorna();
     }
 
