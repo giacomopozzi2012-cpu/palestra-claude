@@ -104,7 +104,9 @@ La pagina si ricorda **fase** e **tempo rimasto** salvandoli nel browser
 ### Notifiche negate o non supportate
 A fine fase, oltre al bip:
 1. **Il titolo della scheda cambia** (es. "✅ Fatto!" o "⏰ Pausa finita"), così lo vedo
-   anche se sto guardando un'altra scheda.
+   anche se sto guardando un'altra scheda. Siccome la pausa parte da sola, il titolo mostra
+   **l'avviso e il tempo insieme**, per esempio "✅ Fatto! ▶ 04:59 – Pausa".
+   L'avviso resta nel titolo **finché non torno sulla scheda del timer**; poi resta solo il tempo.
 2. **Compare un messaggio ben visibile nella pagina**, che resta finché non lo chiudo io.
 
 Inoltre, sempre (non solo a fine fase):

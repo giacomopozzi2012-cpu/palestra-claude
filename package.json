@@ -1,0 +1,11 @@
+{
+  "name": "palestra-claude",
+  "private": true,
+  "description": "Timer Pomodoro",
+  "scripts": {
+    "test": "node --test --test-concurrency=1 --test-timeout=60000\"tests/*.test.js\""
+  },
+  "devDependencies": {
+    "playwright": "1.63.0"
+  }
+}
